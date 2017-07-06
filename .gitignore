@@ -16,3 +16,5 @@ _build/
 examples/sample.iml
 gen_coap.iml
 rebar.lock
+*.d
+Makefile.orig.mk

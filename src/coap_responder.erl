@@ -63,8 +63,7 @@ handle_info(cache_expired, State=#state{observer=undefined}) ->
 handle_info(cache_expired, State) ->
     % multi-block cache expired, but the observer is still active
     {noreply, State};
-handle_info(_Info, State=#state{observer=undefined}) ->
-    {noreply, State};
+
 handle_info({coap_ack, _ChId, _Channel, Ref},
         State=#state{module=Module, obstate=ObState}) ->
     case invoke_callback(Module, coap_ack, [Ref, ObState]) of
@@ -74,12 +73,15 @@ handle_info({coap_ack, _ChId, _Channel, Ref},
 handle_info({coap_error, _ChId, _Channel, _Ref, _Error}, State=#state{observer=Observer}) ->
     {ok, State2} = cancel_observer(Observer, State),
     {stop, normal, State2};
-handle_info(Info, State=#state{module=Module, observer=Observer, obstate=ObState}) ->
+handle_info(Info, State=#state{module=Module, observer=Observer, obstate=ObState, channel = Channel}) ->
     case invoke_callback(Module, handle_info, [Info, ObState]) of
         {notify, Ref, Resource=#coap_content{}, ObState2} ->
             return_resource(Ref, Observer, {ok, content}, Resource, State#state{obstate=ObState2});
         {notify, Ref, {error, Code}, ObState2} ->
             return_response(Ref, Observer, {error, Code}, <<>>, State#state{obstate=ObState2});
+        {send_request, Request, Ref3} ->
+            send_request(Channel, Ref3, Request),
+            {noreply, State};
         {noreply, ObState2} ->
             {noreply, State#state{obstate=ObState2}};
         {stop, ObState2} ->
@@ -237,8 +239,11 @@ cancel_observer(#coap_message{options=Options}, State=#state{module=Module, obst
 
 handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module}) ->
     Content = coap_message:get_content(Request),
-    case invoke_callback(Module, coap_post,
-            [ChId, Prefix, uri_suffix(Prefix, Request), Content]) of
+    Params =    case erlang:function_exported(Module, coap_post, 5) of
+                    true -> [ChId, Prefix, uri_suffix(Prefix, Request), uri_query(Request), Content];
+                    false -> [ChId, Prefix, uri_suffix(Prefix, Request), Content]  % back compatible
+                end,
+    case invoke_callback(Module, coap_post, Params) of
         {ok, Code, Content2} ->
             return_resource([], Request, {ok, Code}, Content2, State);
         {error, Error} ->
@@ -249,8 +254,11 @@ handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module}) ->
 
 handle_put(ChId, Request, Resource, State=#state{prefix=Prefix, module=Module}) ->
     Content = coap_message:get_content(Request),
-    case invoke_callback(Module, coap_put,
-            [ChId, Prefix, uri_suffix(Prefix, Request), Content]) of
+    Params =    case erlang:function_exported(Module, coap_put, 5) of
+                    true -> [ChId, Prefix, uri_suffix(Prefix, Request), uri_query(Request), Content];
+                    false -> [ChId, Prefix, uri_suffix(Prefix, Request), Content]  % back compatible
+                end,
+    case invoke_callback(Module, coap_put, Params) of
         ok ->
             return_response(Request, created_or_changed(Resource), State);
         {error, Error} ->
@@ -328,9 +336,13 @@ send_response(Ref, Response=#coap_message{options=Options},
                     set_timeout(?EXCHANGE_LIFETIME, State);
                 _Else ->
                     % no further communication concerning this request
-                    {stop, normal, State}
+                    {noreply, State}
             end
     end.
+
+send_request(Channel, Ref, Request) ->
+    coap_channel:send_request(Channel, Ref, Request).
+
 
 uri_suffix(Prefix, #coap_message{options=Options}) ->
     Uri = proplists:get_value(uri_path, Options, []),

@@ -21,7 +21,9 @@ content_formats() ->
     {42, <<"application/octet-stream">>},
     {47, <<"application/exi">>},
     {50, <<"application/json">>},
-    {60, <<"application/cbor">>}].
+    {60, <<"application/cbor">>},
+    {11542, <<"application/vnd.oma.lwm2m+tlv">>},
+    {11543, <<"application/vnd.oma.lwm2m+json">>}].
 
 
 decode_enum(Dict, Value) ->

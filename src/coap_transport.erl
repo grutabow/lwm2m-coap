@@ -194,7 +194,7 @@ timeout_after(Time, Channel, TrId, Event) ->
 
 handle_request(Message, #state{cid=ChId, channel=Channel, resp=ReSup, receiver=undefined}) ->
     %io:fwrite("~p => ~p~n", [self(), Message]),
-    case coap_responder_sup:get_responder(ReSup, Message) of
+    case coap_responder_sup:get_responder(ReSup, ChId, Message) of
         {ok, Pid} ->
             Pid ! {coap_request, ChId, Channel, undefined, Message},
             ok;
