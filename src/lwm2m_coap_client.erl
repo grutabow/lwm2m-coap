@@ -8,7 +8,7 @@
 %
 
 % convenience functions for building CoAP clients
--module(coap_client).
+-module(lwm2m_coap_client).
 
 -export([ping/1, request/2, request/3, request/4, ack/2]).
 -export([resolve_uri/1, await_response/5]).
@@ -19,7 +19,7 @@ ping(Uri) ->
     {Scheme, ChId, _Path, _Query} = resolve_uri(Uri),
     channel_apply(Scheme, ChId,
         fun(Channel) ->
-            {ok, Ref} = coap_channel:ping(Channel),
+            {ok, Ref} = lwm2m_coap_channel:ping(Channel),
             case await_response(Channel, undefined, [], Ref, <<>>) of
                 {error, reset} -> ok;
                 _Else -> error
@@ -43,9 +43,9 @@ request_block(Channel, Method, ROpt, Content) ->
     request_block(Channel, Method, ROpt, undefined, Content).
 
 request_block(Channel, Method, ROpt, Block1, Content) ->
-    {ok, Ref} = coap_channel:send(Channel,
-        coap_message:set_content(Content, Block1,
-            coap_message:request(con, Method, <<>>, ROpt))),
+    {ok, Ref} = lwm2m_coap_channel:send(Channel,
+        lwm2m_coap_message:set_content(Content, Block1,
+            lwm2m_coap_message:request(con, Method, <<>>, ROpt))),
     await_response(Channel, Method, ROpt, Ref, Content).
 
 
@@ -64,8 +64,8 @@ await_response(Channel, Method, ROpt, Ref, Content, Fragment) ->
                 {Num, true, Size} ->
                     % more blocks follow, ask for more
                     % no payload for requests with Block2 with NUM != 0
-                    {ok, Ref2} = coap_channel:send(Channel,
-                        coap_message:request(con, Method, <<>>, [{block2, {Num+1, false, Size}}|ROpt])),
+                    {ok, Ref2} = lwm2m_coap_channel:send(Channel,
+                        lwm2m_coap_message:request(con, Method, <<>>, [{block2, {Num+1, false, Size}}|ROpt])),
                     await_response(Channel, Method, ROpt, Ref2, Content, <<Fragment/binary, Data/binary>>);
                 _Else ->
                     % not segmented
@@ -78,15 +78,15 @@ await_response(Channel, Method, ROpt, Ref, Content, Fragment) ->
     end.
 
 return_response({ok, Code}, Message) ->
-    {ok, Code, coap_message:get_content(Message)};
+    {ok, Code, lwm2m_coap_message:get_content(Message)};
 return_response({error, Code}, #coap_message{payload= <<>>}) ->
     {error, Code};
 return_response({error, Code}, Message) ->
-    {error, Code, coap_message:get_content(Message)}.
+    {error, Code, lwm2m_coap_message:get_content(Message)}.
 
 ack(Channel, Message) ->
-    coap_channel:send(Channel,
-        coap_message:ack(Message)).
+    lwm2m_coap_channel:send(Channel,
+        lwm2m_coap_message:ack(Message)).
 
 
 resolve_uri(Uri) ->
@@ -115,22 +115,22 @@ make_segment(Seg) ->
     list_to_binary(http_uri:decode(Seg)).
 
 channel_apply(coap, ChId, Fun) ->
-    {ok, Sock} = coap_udp_socket:start_link(),
-    {ok, Channel} = coap_udp_socket:get_channel(Sock, ChId),
+    {ok, Sock} = lwm2m_coap_udp_socket:start_link(),
+    {ok, Channel} = lwm2m_coap_udp_socket:get_channel(Sock, ChId),
     % send and receive
     Res = apply(Fun, [Channel]),
     % terminate the processes
-    coap_channel:close(Channel),
-    coap_udp_socket:close(Sock),
+    lwm2m_coap_channel:close(Channel),
+    lwm2m_coap_udp_socket:close(Sock),
     Res;
 
 channel_apply(coaps, {Host, Port}, Fun) ->
-    {ok, Sock, Channel} = coap_dtls_socket:connect(Host, Port),
+    {ok, Sock, Channel} = lwm2m_coap_dtls_socket:connect(Host, Port),
     % send and receive
     Res = apply(Fun, [Channel]),
     % terminate the processes
-    coap_channel:close(Channel),
-    coap_dtls_socket:close(Sock),
+    lwm2m_coap_channel:close(Channel),
+    lwm2m_coap_dtls_socket:close(Sock),
     Res.
 
 -include_lib("eunit/include/eunit.hrl").

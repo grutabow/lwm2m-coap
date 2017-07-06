@@ -8,7 +8,7 @@
 %
 
 % convenience functions for message construction
--module(coap_message).
+-module(lwm2m_coap_message).
 
 -export([request/2, request/3, request/4, ack/1, response/1, response/2, response/3]).
 -export([set/3, set_payload/2, get_content/1, set_content/2, set_content/3]).

@@ -20,7 +20,7 @@ coap_discover(_Prefix, _Args) ->
     [].
 
 coap_get(_ChId, _Prefix, [], Query) ->
-    Links = core_link:encode(filter(lwm2m_coap_server_registry:get_links(), Query)),
+    Links = coap_core_link:encode(filter(lwm2m_coap_server_registry:get_links(), Query)),
     #coap_content{etag = binary:part(crypto:hash(sha, Links), {0,4}),
                   format = <<"application/link-format">>,
                   payload = list_to_binary(Links)};

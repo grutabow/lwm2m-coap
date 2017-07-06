@@ -8,7 +8,7 @@
 %
 
 % encoding and decoding for CoAP v1 messages
--module(coap_message_parser).
+-module(lwm2m_coap_message_parser).
 
 -export([decode/1, decode_type/1, encode/1, message_id/1]).
 -import(core_iana, [content_formats/0]).

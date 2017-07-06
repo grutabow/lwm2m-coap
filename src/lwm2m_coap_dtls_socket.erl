@@ -6,7 +6,7 @@
 %
 % Copyright (c) 2016 Petr Gotthard <petr.gotthard@centrum.cz>
 %
--module(coap_dtls_socket).
+-module(lwm2m_coap_dtls_socket).
 -behaviour(gen_server).
 
 -export([connect/2, close/1, start_link/1, get_channel/2]).
@@ -36,7 +36,7 @@ init([accept, ListenSocket]) ->
     {ok, #state{sock=ListenSocket}}.
 
 handle_call({get_channel, ChId}, _From, State=#state{channel=undefined}) ->
-    {ok, SupPid, Pid} = coap_channel_sup:start_link(self(), ChId),
+    {ok, SupPid, Pid} = lwm2m_coap_channel_sup:start_link(self(), ChId),
     {reply, {ok, Pid}, State#state{supid=SupPid, channel=Pid}}.
 
 handle_cast(accept, State = #state{sock=ListenSocket}) ->
@@ -47,7 +47,7 @@ handle_cast(accept, State = #state{sock=ListenSocket}) ->
             % establish the connection
             ok = ssl:ssl_accept(Socket),
             % FIXME: where do we get the chanel id?
-            {ok, SupPid, Pid} = coap_channel_sup:start_link(self(), {{0,0,0,0}, 0}),
+            {ok, SupPid, Pid} = lwm2m_coap_channel_sup:start_link(self(), {{0,0,0,0}, 0}),
             {noreply, State#state{sock=Socket, supid=SupPid, channel=Pid}};
         _ ->
             {stop, normal, State}

@@ -8,7 +8,7 @@
 %
 
 % supervisor for a single channel
--module(coap_channel_sup).
+-module(lwm2m_coap_channel_sup).
 -behaviour(supervisor).
 
 -export([start_link/2, init/1]).
@@ -16,12 +16,12 @@
 start_link(SockPid, ChId) ->
     {ok, SupPid} = supervisor:start_link(?MODULE, []),
     {ok, ReSup} = supervisor:start_child(SupPid,
-        {coap_resonder_sup,
-            {coap_responder_sup, start_link, []},
+        {lwm2m_coap_resonder_sup,
+            {lwm2m_coap_responder_sup, start_link, []},
             permanent, infinity, supervisor, []}),
     {ok, ChPid} = supervisor:start_child(SupPid,
-        {coap_channel,
-            {coap_channel, start_link, [SupPid, SockPid, ChId, ReSup]},
+        {lwm2m_coap_channel,
+            {lwm2m_coap_channel, start_link, [SupPid, SockPid, ChId, ReSup]},
             transient, 5000, worker, []}),
     {ok, SupPid, ChPid}.
 

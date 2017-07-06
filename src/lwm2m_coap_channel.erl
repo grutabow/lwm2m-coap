@@ -9,7 +9,7 @@
 
 % socket pair, identified by a 2-tuple of local and remote socket addresses
 % stores state for a given endpoint
--module(coap_channel).
+-module(lwm2m_coap_channel).
 -behaviour(gen_server).
 
 -export([start_link/4]).
@@ -82,15 +82,15 @@ transport_new_message(Message, Receiver, State=#state{nextmid=MsgId}) ->
 
 transport_message(TrId, Message, Receiver, State) ->
     update_state(State, TrId,
-        coap_transport:send(Message, create_transport(TrId, Receiver, State))).
+        lwm2m_coap_transport:send(Message, create_transport(TrId, Receiver, State))).
 
 transport_response(Message=#coap_message{id=MsgId}, Receiver, State=#state{trans=Trans}) ->
     case dict:find({in, MsgId}, Trans) of
         {ok, TrState} ->
-            case coap_transport:awaits_response(TrState) of
+            case lwm2m_coap_transport:awaits_response(TrState) of
                 true ->
                     update_state(State, {in, MsgId},
-                        coap_transport:send(Message, TrState));
+                        lwm2m_coap_transport:send(Message, TrState));
                 false ->
                     transport_new_message(Message, Receiver, State)
             end;
@@ -102,22 +102,22 @@ transport_response(Message=#coap_message{id=MsgId}, Receiver, State=#state{trans
 handle_info({datagram, BinMessage= <<?VERSION:2, 0:1, _:1, _TKL:4, 0:3, _CodeDetail:5, MsgId:16, _/bytes>>}, State) ->
     TrId = {in, MsgId},
     update_state(State, TrId,
-        coap_transport:received(BinMessage, create_transport(TrId, undefined, State)));
+        lwm2m_coap_transport:received(BinMessage, create_transport(TrId, undefined, State)));
 % incoming CON(0) or NON(1) response
 handle_info({datagram, BinMessage= <<?VERSION:2, 0:1, _:1, TKL:4, _Code:8, MsgId:16, Token:TKL/bytes, _/bytes>>},
         State=#state{sock=Sock, cid=ChId, tokens=Tokens, trans=Trans}) ->
     TrId = {in, MsgId},
     case dict:find(TrId, Trans) of
         {ok, TrState} ->
-            update_state(State, TrId, coap_transport:received(BinMessage, TrState));
+            update_state(State, TrId, lwm2m_coap_transport:received(BinMessage, TrState));
         error ->
             case dict:find(Token, Tokens) of
                 {ok, Receiver} ->
                     update_state(State, TrId,
-                        coap_transport:received(BinMessage, init_transport(TrId, Receiver, State)));
+                        lwm2m_coap_transport:received(BinMessage, init_transport(TrId, Receiver, State)));
                 error ->
                     % token was not recognized
-                    BinReset = coap_message_parser:encode(#coap_message{type=reset, id=MsgId}),
+                    BinReset = lwm2m_coap_message_parser:encode(#coap_message{type=reset, id=MsgId}),
                     io:fwrite("<- reset~n"),
                     Sock ! {datagram, ChId, BinReset}
             end
@@ -129,7 +129,7 @@ handle_info({datagram, BinMessage= <<?VERSION:2, _:2, _TKL:4, _Code:8, MsgId:16,
     update_state(State, TrId,
         case dict:find(TrId, Trans) of
             error -> undefined; % ignore unexpected responses
-            {ok, TrState} -> coap_transport:received(BinMessage, TrState)
+            {ok, TrState} -> lwm2m_coap_transport:received(BinMessage, TrState)
         end);
 % silently ignore other versions
 handle_info({datagram, <<Ver:2, _/bytes>>}, State) when Ver /= ?VERSION ->
@@ -138,7 +138,7 @@ handle_info({timeout, TrId, Event}, State=#state{trans=Trans}) ->
     update_state(State, TrId,
         case dict:find(TrId, Trans) of
             error -> undefined; % ignore unexpected responses
-            {ok, TrState} -> coap_transport:timeout(Event, TrState)
+            {ok, TrState} -> lwm2m_coap_transport:timeout(Event, TrState)
         end);
 handle_info({request_complete, Token}, State=#state{tokens=Tokens}) ->
     Tokens2 = dict:erase(Token, Tokens),
@@ -177,9 +177,9 @@ create_transport(TrId, Receiver, State=#state{trans=Trans}) ->
     end.
 
 init_transport(TrId, undefined, #state{sock=Sock, cid=ChId, res=ReSup}) ->
-    coap_transport:init(Sock, ChId, self(), TrId, ReSup, undefined);
+    lwm2m_coap_transport:init(Sock, ChId, self(), TrId, ReSup, undefined);
 init_transport(TrId, Receiver, #state{sock=Sock, cid=ChId}) ->
-    coap_transport:init(Sock, ChId, self(), TrId, undefined, Receiver).
+    lwm2m_coap_transport:init(Sock, ChId, self(), TrId, undefined, Receiver).
 
 update_state(State=#state{trans=Trans}, TrId, undefined) ->
     Trans2 = dict:erase(TrId, Trans),

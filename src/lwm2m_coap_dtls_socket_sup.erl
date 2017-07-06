@@ -1,4 +1,4 @@
--module(coap_dtls_socket_sup).
+-module(lwm2m_coap_dtls_socket_sup).
 
 -behaviour(supervisor).
 
@@ -46,8 +46,8 @@ start_socket(SocketSup, ListenSocket) ->
 %%--------------------------------------------------------------------
 init([]) ->
     {ok, {{simple_one_for_one, 1000, 3600},
-          [{socket, {coap_dtls_socket, start_link, []},
-            transient, 5000, worker, [coap_dtls_socket]}]}}.
+          [{socket, {lwm2m_coap_dtls_socket, start_link, []},
+            transient, 5000, worker, [lwm2m_coap_dtls_socket]}]}}.
 
 
 

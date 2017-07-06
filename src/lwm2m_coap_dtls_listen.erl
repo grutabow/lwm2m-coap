@@ -6,7 +6,7 @@
 %
 % Copyright (c) 2016 Petr Gotthard <petr.gotthard@centrum.cz>
 %
--module(coap_dtls_listen).
+-module(lwm2m_coap_dtls_listen).
 
 -behaviour(gen_server).
 
@@ -58,7 +58,7 @@ init([SocketSup, InPort, Opts]) ->
     process_flag(trap_exit, true),
     case ssl:listen(InPort, Opts) of
         {ok, ListenSocket} ->
-            [{ok , _} = coap_dtls_socket_sup:start_socket(SocketSup, ListenSocket) || _ <- lists:seq(1,20)],
+            [{ok , _} = lwm2m_coap_dtls_socket_sup:start_socket(SocketSup, ListenSocket) || _ <- lists:seq(1,20)],
             {ok, #state{lsock = ListenSocket}};
         {error, Reason} -> 
             {stop, {cannot_listen, InPort, Reason}}

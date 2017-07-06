@@ -9,7 +9,7 @@
 
 % stores one channel handler per endpoint
 % when communication ceases the respective channel exits normally
--module(coap_channel_sup_sup).
+-module(lwm2m_coap_channel_sup_sup).
 -behaviour(supervisor).
 
 -export([start_link/0, start_channel/2, delete_channel/2, init/1]).
@@ -20,7 +20,7 @@ start_link() ->
 start_channel(SupPid, ChId) ->
     supervisor:start_child(SupPid,
         {ChId,
-            {coap_channel_sup, start_link, [self(), ChId]},
+            {lwm2m_coap_channel_sup, start_link, [self(), ChId]},
             temporary, infinity, supervisor, []}).
 
 delete_channel(SupPid, ChId) ->

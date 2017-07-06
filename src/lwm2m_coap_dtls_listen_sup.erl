@@ -1,4 +1,4 @@
--module(coap_dtls_listen_sup).
+-module(lwm2m_coap_dtls_listen_sup).
 
 -behaviour(supervisor).
 
@@ -25,11 +25,11 @@ start_link(InPort, Opts0) ->
     Opts =  Opts0 ++ [binary, {protocol, dtls}, {reuseaddr, true}],
     {ok, Sup} = supervisor:start_link(?MODULE, []),
     {ok, SocketSup} = supervisor:start_child(Sup, 
-    	{socket_sup, {coap_dtls_socket_sup, start_link, []}, 
-    	 transient, infinity, supervisor, [coap_dtls_socket_sup]}),
+    	{socket_sup, {lwm2m_coap_dtls_socket_sup, start_link, []},
+    	 transient, infinity, supervisor, [lwm2m_coap_dtls_socket_sup]}),
     {ok, _Listener}  = supervisor:start_child(Sup, 
-    	{listener, {coap_dtls_listen, start_link, [SocketSup, InPort, Opts]},
-    	 transient, 16#ffffffff, worker, [coap_dtls_listen]}),
+    	{listener, {lwm2m_coap_dtls_listen, start_link, [SocketSup, InPort, Opts]},
+    	 transient, 16#ffffffff, worker, [lwm2m_coap_dtls_listen]}),
     {ok, Sup}. 
 
 init([]) ->
