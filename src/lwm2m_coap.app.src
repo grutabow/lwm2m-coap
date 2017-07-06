@@ -1,5 +1,5 @@
-{application, gen_coap,
-	[{description, "Constrained Application Protocol"},
+{application, lwm2m_coap,
+	[{description, "Constrained Application Protocol For LWM2M"},
 	{vsn, "0.2.0"},
 	{modules, []},
 	{registered, []},

@@ -1,7 +1,7 @@
 -module(sample_server).
 -export([start/0]).
 
--behaviour(coap_resource).
+-behaviour(lwm2m_coap_resource).
 
 -export([coap_discover/2, coap_get/4, coap_post/4, coap_put/4, coap_delete/3,
     coap_observe/4, coap_unobserve/1, handle_info/2, coap_ack/2]).
@@ -54,7 +54,7 @@ start() ->
     register(main, self()),
     ok = application:start(mnesia),
     {atomic, ok} = mnesia:create_table(resources, []),
-    {ok, _} = application:ensure_all_started(gen_coap),
+    {ok, _} = application:ensure_all_started(lwm2m_coap),
     {ok, _} = coap_server:start_udp(coap_udp_socket),
     {ok, _} = coap_server:start_dtls(coap_dtls_socket, [{certfile, "cert.pem"}, {keyfile, "key.pem"}]),
     coap_server_registry:add_handler([], ?MODULE, undefined).

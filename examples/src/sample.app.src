@@ -4,6 +4,6 @@
 	{modules, []},
 	{registered, []},
 	{env, []},
-	{applications, [kernel, stdlib, gen_coap]}]}.
+	{applications, [kernel, stdlib, lwm2m_coap]}]}.
 
 % end of file
