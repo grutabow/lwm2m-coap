@@ -309,7 +309,7 @@ return_response(Request, Code, State) ->
     return_response([], Request, Code, <<>>, State).
 
 return_response(Ref, Request, Code, Reason, State) ->
-    send_response(Ref, coap_message:response(Code, Reason, Request), State#state{last_response=Code}).
+    send_response(Ref, lwm2m_coap_message:response(Code, Reason, Request), State#state{last_response=Code}).
 
 send_observable(Ref, #coap_message{token=Token, options=Options}, Response,
         State=#state{observer=Observer, obseq=Seq}) ->
@@ -341,7 +341,7 @@ send_response(Ref, Response=#coap_message{options=Options},
     end.
 
 send_request(Channel, Ref, Request) ->
-    coap_channel:send_request(Channel, Ref, Request).
+    lwm2m_coap_channel:send_request(Channel, Ref, Request).
 
 
 uri_suffix(Prefix, #coap_message{options=Options}) ->

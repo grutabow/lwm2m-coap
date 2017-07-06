@@ -69,7 +69,7 @@ stop_dtls(Name) ->
     supervisor:delete_child(?MODULE, Name).
 
 
-channel_sup(SupPid) -> child(SupPid, coap_channel_sup_sup).
+channel_sup(SupPid) -> child(SupPid, lwm2m_coap_channel_sup_sup).
 
 child(SupPid, Id) ->
     [Pid] = [Pid || {Id1, Pid, _, _} <- supervisor:which_children(SupPid),
