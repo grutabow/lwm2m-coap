@@ -64,7 +64,7 @@ handle_call(_Unknown, _From, State) ->
 
 handle_cast({set_pool, SupPid}, State) ->
     % calling lwm2m_coap_server directly from init/1 causes deadlock
-    PoolPid = l2m2m_coap_server:channel_sup(SupPid),
+    PoolPid = lwm2m_coap_server:channel_sup(SupPid),
     {noreply, State#state{pool=PoolPid}};
 handle_cast(shutdown, State) ->
     {stop, normal, State};

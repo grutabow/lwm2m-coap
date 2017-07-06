@@ -11,8 +11,8 @@
 -module(lwm2m_coap_message_parser).
 
 -export([decode/1, decode_type/1, encode/1, message_id/1]).
--import(core_iana, [content_formats/0]).
--import(core_iana, [decode_enum/2, decode_enum/3, encode_enum/2, encode_enum/3]).
+-import(coap_core_iana, [content_formats/0]).
+-import(coap_core_iana, [decode_enum/2, decode_enum/3, encode_enum/2, encode_enum/3]).
 -include("coap.hrl").
 
 -define(VERSION, 1).

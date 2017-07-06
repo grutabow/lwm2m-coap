@@ -3,7 +3,7 @@
 	{vsn, "0.2.0"},
 	{modules, []},
 	{registered, []},
-	{mod, {coap_server, []}},
+	{mod, {lwm2m_coap_server, []}},
 	{env, []},
 	{applications, [kernel, stdlib, ssl]}]}.
 

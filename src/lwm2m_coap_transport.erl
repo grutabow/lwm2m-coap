@@ -121,7 +121,7 @@ in_con({in, BinMessage}, State) ->
 
 go_await_aack(Message, State) ->
     % we may need to ack the message
-    BinAck = lwm2m_coap_message_parser:encode(coap_message:response(Message)),
+    BinAck = lwm2m_coap_message_parser:encode(lwm2m_coap_message:response(Message)),
     next_state(await_aack, State#state{msg=BinAck}, ?PROCESSING_DELAY).
 
 await_aack({in, _BinMessage}, State) ->
