@@ -11,8 +11,8 @@
 -module(coap_core_link).
 
 -export([decode/1, encode/1]).
--import(core_iana, [content_formats/0]).
--import(core_iana, [decode_enum/2, decode_enum/3, encode_enum/2, encode_enum/3]).
+-import(coap_core_iana, [content_formats/0]).
+-import(coap_core_iana, [decode_enum/2, decode_enum/3, encode_enum/2, encode_enum/3]).
 
 decode(Binary) when is_binary(Binary) ->
     decode(binary_to_list(Binary));
