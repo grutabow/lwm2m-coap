@@ -9,7 +9,7 @@
 
 % values assigned by IANA
 % http://www.iana.org/assignments/core-parameters
--module(core_iana).
+-module(coap_core_iana).
 
 -export([content_formats/0]).
 -export([decode_enum/2, decode_enum/3, encode_enum/2, encode_enum/3]).

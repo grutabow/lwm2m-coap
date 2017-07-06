@@ -7,7 +7,7 @@
 % Copyright (c) 2015 Petr Gotthard <petr.gotthard@centrum.cz>
 %
 
--module(coap_resource).
+-module(lwm2m_coap_resource).
 
 -include("coap.hrl").
 

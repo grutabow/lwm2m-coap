@@ -8,7 +8,7 @@
 %
 
 % encoding and decoding for the CoRE link format, see RFC 6690
--module(core_link).
+-module(coap_core_link).
 
 -export([decode/1, encode/1]).
 -import(core_iana, [content_formats/0]).
@@ -18,9 +18,9 @@ decode(Binary) when is_binary(Binary) ->
     decode(binary_to_list(Binary));
 decode(String) ->
     % the parser is auto-generated using leex and yecc
-    case catch core_link_scanner:string(String) of
+    case catch coap_core_link_scanner:string(String) of
         {ok, TokenList, _Line} ->
-            case catch core_link_parser:parse(TokenList) of
+            case catch coap_core_link_parser:parse(TokenList) of
                 {ok, Res} -> Res;
                 Err -> {error, Err}
             end;
