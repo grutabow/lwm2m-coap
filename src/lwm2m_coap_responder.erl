@@ -10,7 +10,7 @@
 % request handler
 % provides caching for atomic multi-block operations
 % provides synchronous callbacks that block until a response is ready
--module(coap_responder).
+-module(lwm2m_coap_responder).
 -behaviour(gen_server).
 
 -include("coap.hrl").
@@ -34,7 +34,7 @@ notify(Uri, Resource) ->
 
 init([Channel, Uri]) ->
     % the receiver will be determined based on the URI
-    case coap_server_registry:get_handler(Uri) of
+    case lwm2m_coap_server_registry:get_handler(Uri) of
         {Prefix, Module, Args} ->
             Channel ! {responder_started},
             {ok, #state{channel=Channel, prefix=Prefix, module=Module, args=Args,
@@ -105,9 +105,9 @@ handle(ChId, Request=#coap_message{options=Options}, State=#state{channel=Channe
         {error, Code} ->
             return_response(Request, {error, Code}, State);
         {continue, State2} ->
-            {ok, _} = coap_channel:send_response(Channel, [],
-                coap_message:set(block1, Block1,
-                    coap_message:response({ok, continue}, Request))),
+            {ok, _} = lwm2m_coap_channel:send_response(Channel, [],
+                lwm2m_coap_message:set(block1, Block1,
+                    lwm2m_coap_message:response({ok, continue}, Request))),
             set_timeout(?EXCHANGE_LIFETIME, State2);
         {ok, Payload, State2} ->
             process_request(ChId, Request#coap_message{payload=Payload}, State2)
@@ -238,7 +238,7 @@ cancel_observer(#coap_message{options=Options}, State=#state{module=Module, obst
     {ok, State#state{observer=undefined, obstate=undefined}}.
 
 handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module}) ->
-    Content = coap_message:get_content(Request),
+    Content = lwm2m_coap_message:get_content(Request),
     Params =    case erlang:function_exported(Module, coap_post, 5) of
                     true -> [ChId, Prefix, uri_suffix(Prefix, Request), uri_query(Request), Content];
                     false -> [ChId, Prefix, uri_suffix(Prefix, Request), Content]  % back compatible
@@ -253,7 +253,7 @@ handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module}) ->
     end.
 
 handle_put(ChId, Request, Resource, State=#state{prefix=Prefix, module=Module}) ->
-    Content = coap_message:get_content(Request),
+    Content = lwm2m_coap_message:get_content(Request),
     Params =    case erlang:function_exported(Module, coap_put, 5) of
                     true -> [ChId, Prefix, uri_suffix(Prefix, Request), uri_query(Request), Content];
                     false -> [ChId, Prefix, uri_suffix(Prefix, Request), Content]  % back compatible
@@ -298,11 +298,11 @@ return_resource(Ref, Request=#coap_message{options=Options}, {ok, Code}, Content
     send_observable(Ref, Request,
         case lists:member(ETag, proplists:get_value(etag, Options, [])) of
             true ->
-                coap_message:set_content(#coap_content{etag=ETag},
-                    coap_message:response({ok, valid}, Request));
+                lwm2m_coap_message:set_content(#coap_content{etag=ETag},
+                    lwm2m_coap_message:response({ok, valid}, Request));
             false ->
-                coap_message:set_content(Content, proplists:get_value(block2, Options),
-                    coap_message:response({ok, Code}, Request))
+                lwm2m_coap_message:set_content(Content, proplists:get_value(block2, Options),
+                    lwm2m_coap_message:response({ok, Code}, Request))
         end, State#state{last_response={ok, Code, Content}}).
 
 return_response(Request, Code, State) ->
@@ -316,7 +316,7 @@ send_observable(Ref, #coap_message{token=Token, options=Options}, Response,
     case {proplists:get_value(observe, Options), Observer} of
         % when requested observe and is observing, return the sequence number
         {0, #coap_message{token=Token}} ->
-            send_response(Ref, coap_message:set(observe, Seq, Response), State#state{obseq=next_seq(Seq)});
+            send_response(Ref, lwm2m_coap_message:set(observe, Seq, Response), State#state{obseq=next_seq(Seq)});
         _Else ->
             send_response(Ref, Response, State)
     end.
@@ -324,7 +324,7 @@ send_observable(Ref, #coap_message{token=Token, options=Options}, Response,
 send_response(Ref, Response=#coap_message{options=Options},
         State=#state{channel=Channel, observer=Observer}) ->
     %io:fwrite("<- ~p~n", [Response]),
-    {ok, _} = coap_channel:send_response(Channel, Ref, Response),
+    {ok, _} = lwm2m_coap_channel:send_response(Channel, Ref, Response),
     case Observer of
         #coap_message{} ->
             % notifications will follow

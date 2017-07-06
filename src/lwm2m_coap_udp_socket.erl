@@ -10,7 +10,7 @@
 % dispatcher for UDP communication
 % maintains a lookup-table for existing channels
 % when a channel pool is provided (server mode), creates new channels
--module(coap_udp_socket).
+-module(lwm2m_coap_udp_socket).
 -behaviour(gen_server).
 
 -export([start_link/0, start_link/2, get_channel/2, close/1]).
@@ -49,11 +49,11 @@ handle_call({get_channel, ChId}, _From, State=#state{chans=Chans, pool=undefined
         {ok, Pid} ->
             {reply, {ok, Pid}, State};
         undefined ->
-            {ok, _, Pid} = coap_channel_sup:start_link(self(), ChId),
+            {ok, _, Pid} = lwm2m_coap_channel_sup:start_link(self(), ChId),
             {reply, {ok, Pid}, store_channel(ChId, Pid, State)}
     end;
 handle_call({get_channel, ChId}, _From, State=#state{pool=PoolPid}) ->
-    case coap_channel_sup_sup:start_channel(PoolPid, ChId) of
+    case lwm2m_coap_channel_sup_sup:start_channel(PoolPid, ChId) of
         {ok, _, Pid} ->
             {reply, {ok, Pid}, store_channel(ChId, Pid, State)};
         Error ->
@@ -63,13 +63,13 @@ handle_call(_Unknown, _From, State) ->
     {reply, unknown_call, State}.
 
 handle_cast({set_pool, SupPid}, State) ->
-    % calling coap_server directly from init/1 causes deadlock
-    PoolPid = coap_server:channel_sup(SupPid),
+    % calling lwm2m_coap_server directly from init/1 causes deadlock
+    PoolPid = l2m2m_coap_server:channel_sup(SupPid),
     {noreply, State#state{pool=PoolPid}};
 handle_cast(shutdown, State) ->
     {stop, normal, State};
 handle_cast(Request, State) ->
-    io:fwrite("coap_udp_socket unknown cast ~p~n", [Request]),
+    io:fwrite("lwm2m_coap_udp_socket unknown cast ~p~n", [Request]),
     {noreply, State}.
 
 handle_info({udp, _Socket, PeerIP, PeerPortNo, Data}, State=#state{chans=Chans, pool=PoolPid}) ->
@@ -80,7 +80,7 @@ handle_info({udp, _Socket, PeerIP, PeerPortNo, Data}, State=#state{chans=Chans, 
             Pid ! {datagram, Data},
             {noreply, State};
         undefined when is_pid(PoolPid) ->
-            case coap_channel_sup_sup:start_channel(PoolPid, ChId) of
+            case lwm2m_coap_channel_sup_sup:start_channel(PoolPid, ChId) of
                 % new channel created
                 {ok, _, Pid} ->
                     Pid ! {datagram, Data},
@@ -102,7 +102,7 @@ handle_info({terminated, SupPid, ChId}, State=#state{chans=Chans}) ->
     exit(SupPid, normal),
     {noreply, State#state{chans=Chans2}};
 handle_info(Info, State) ->
-    io:fwrite("coap_udp_socket unexpected ~p~n", [Info]),
+    io:fwrite("lwm2m_coap_udp_socket unexpected ~p~n", [Info]),
     {noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->

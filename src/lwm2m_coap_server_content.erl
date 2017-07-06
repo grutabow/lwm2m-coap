@@ -8,8 +8,8 @@
 %
 
 % provides the .well-known/core resource and content queries
--module(coap_server_content).
--behaviour(coap_resource).
+-module(lwm2m_coap_server_content).
+-behaviour(lwm2m_coap_resource).
 
 -export([coap_discover/2, coap_get/4, coap_post/4, coap_put/4, coap_delete/3,
     coap_observe/4, coap_unobserve/1, handle_info/2, coap_ack/2]).
@@ -20,7 +20,7 @@ coap_discover(_Prefix, _Args) ->
     [].
 
 coap_get(_ChId, _Prefix, [], Query) ->
-    Links = core_link:encode(filter(coap_server_registry:get_links(), Query)),
+    Links = core_link:encode(filter(lwm2m_coap_server_registry:get_links(), Query)),
     #coap_content{etag = binary:part(crypto:hash(sha, Links), {0,4}),
                   format = <<"application/link-format">>,
                   payload = list_to_binary(Links)};

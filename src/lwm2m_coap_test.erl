@@ -7,7 +7,7 @@
 % Copyright (c) 2015 Petr Gotthard <petr.gotthard@centrum.cz>
 %
 
--module(coap_test).
+-module(lwm2m_coap_test).
 -export([text_resource/1, text_resource/2, observe/1, observe_and_modify/2]).
 
 -include("coap.hrl").
@@ -24,18 +24,18 @@ large_binary(Size, Acc) ->
     <<Acc/binary, Sup/binary>>.
 
 observe_and_modify(Uri, Resource) ->
-    {ok, _} = timer:apply_after(500, coap_client, request, [put, Uri, Resource]),
+    {ok, _} = timer:apply_after(500, lwm2m_coap_client, request, [put, Uri, Resource]),
     observe(Uri).
 
 observe(Uri) ->
-    case coap_observer:observe(Uri) of
+    case lwm2m_coap_observer:observe(Uri) of
         {ok, Pid, N1, Code1, Content1} ->
             % wait for one notification and then stop
             receive
                 {coap_notify, Pid, N2, Code2, Content2} ->
                     {{ok, pid, N1, Code1, Content1},            % answer to the observe request
                      {coap_notify, pid, N2, Code2, Content2},   % notification
-                     coap_observer:stop(Pid)}                   % answer to the cancellation
+                     lwm2m_coap_observer:stop(Pid)}                   % answer to the cancellation
             end;
         NotSubscribed ->
             NotSubscribed

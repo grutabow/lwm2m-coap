@@ -8,7 +8,7 @@
 %
 
 % registry of server content handlers
--module(coap_server_registry).
+-module(lwm2m_coap_server_registry).
 -export([add_handler/3, get_handler/1, get_links/0]).
 
 -behaviour(gen_server).
@@ -33,7 +33,7 @@ start_link() ->
 init(_Args) ->
     {ok, #state{reg=
         % RFC 6690, Section 4
-        [{[<<".well-known">>, <<"core">>], coap_server_content, undefined}]
+        [{[<<".well-known">>, <<"core">>], lwm2m_coap_server_content, undefined}]
     }}.
 
 handle_call({add_handler, Prefix, Module, Args}, _From, State=#state{reg=Reg}) ->

@@ -7,7 +7,7 @@
 % Copyright (c) 2015 Petr Gotthard <petr.gotthard@centrum.cz>
 %
 
--module(coap_responder_sup).
+-module(lwm2m_coap_responder_sup).
 -behaviour(supervisor).
 
 -export([start_link/0, get_responder/3, init/1]).
@@ -28,7 +28,7 @@ start_responder(SupPid, ChId, #coap_message{options=Options}) ->
     Uri = proplists:get_value(uri_path, Options, []),
     supervisor:start_child(SupPid,
         {ChId,
-            {coap_responder, start_link, [self(), Uri]},
+            {lwm2m_coap_responder, start_link, [self(), Uri]},
             temporary, 5000, worker, []}).
 
 init([]) ->

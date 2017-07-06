@@ -9,7 +9,7 @@
 
 % CoAP server application
 % supervisor for content registry, listening socket and channel supervisor
--module(coap_server).
+-module(lwm2m_coap_server).
 
 -behaviour(application).
 -export([start/0, start/2, stop/1]).
@@ -32,11 +32,11 @@ stop(_Pid) ->
 
 init([]) ->
     {ok, {{one_for_all, 3, 10}, [
-        {coap_server_registry,
-            {coap_server_registry, start_link, []},
+        {lwm2m_coap_server_registry,
+            {lwm2m_coap_server_registry, start_link, []},
             permanent, 5000, worker, []},
-        {coap_channel_sup_sup,
-            {coap_channel_sup_sup, start_link, []},
+        {lwm2m_coap_channel_sup_sup,
+            {lwm2m_coap_channel_sup_sup, start_link, []},
             permanent, infinity, supervisor, []}
     ]}}.
 
@@ -46,7 +46,7 @@ start_udp(Name) ->
 start_udp(Name, UdpPort) ->
     supervisor:start_child(?MODULE,
         {Name,
-            {coap_udp_socket, start_link, [UdpPort, whereis(?MODULE)]},
+            {lwm2m_coap_udp_socket, start_link, [UdpPort, whereis(?MODULE)]},
             transient, 5000, worker, []}).
 
 stop_udp(Name) ->
@@ -60,7 +60,7 @@ start_dtls(Name, DtlsOpts) ->
 start_dtls(Name, DtlsPort, DtlsOpts) ->
     supervisor:start_child(?MODULE,
         {Name,
-            {coap_dtls_listen_sup, start_link, [DtlsPort, DtlsOpts]},
+            {lwm2m_coap_dtls_listen_sup, start_link, [DtlsPort, DtlsOpts]},
             transient, infinity, supervisor, [Name]}).
     
 
