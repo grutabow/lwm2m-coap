@@ -1,11 +1,10 @@
 .eunit
 .rebar
 .coap_dialyzer*
-
-.project
-.settings
 deps
 ebin
+.project
+.settings
 src/coap_core_link_scanner.erl
 src/coap_core_link_parser.erl
 erl_crash.dump
@@ -14,7 +13,7 @@ erl_crash.dump
 .idea/
 _build/
 examples/sample.iml
-gen_coap.iml
+lwm2m_coap.iml
 rebar.lock
 *.d
 Makefile.orig.mk
