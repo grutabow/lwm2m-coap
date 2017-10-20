@@ -70,6 +70,8 @@ handle_info({coap_ack, _ChId, _Channel, Ref},
         {ok, ObState2} ->
             {noreply, State#state{obstate=ObState2}}
     end;
+handle_info({coap_error, _ChId, _Channel, _Ref, _Error}, State=#state{observer=undefined}) ->
+    {noreply, State};
 handle_info({coap_error, _ChId, _Channel, _Ref, _Error}, State=#state{observer=Observer}) ->
     {ok, State2} = cancel_observer(Observer, State),
     {stop, normal, State2};
