@@ -119,7 +119,9 @@ handle_info({datagram, BinMessage= <<?VERSION:2, 0:1, _:1, TKL:4, _Code:8, MsgId
                     % token was not recognized
                     BinReset = lwm2m_coap_message_parser:encode(#coap_message{type=reset, id=MsgId}),
                     io:fwrite("<- reset~n"),
-                    Sock ! {datagram, ChId, BinReset}
+                    Sock ! {datagram, ChId, BinReset},
+                    {noreply, State}
+
             end
     end;
 % incoming ACK(2) or RST(3) to a request or response
