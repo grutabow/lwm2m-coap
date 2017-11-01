@@ -208,6 +208,17 @@ handle_request(Message, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}
     Sender ! {coap_request, ChId, Channel, Ref, Message},
     ok.
 
+handle_response(Message, #state{cid=ChId, channel=Channel, resp=ReSup, receiver=undefined}) ->
+    io:fwrite("lwm2m_coap_transport handle_response receiver=undefined, received Message=~p~n", [Message]),
+    case lwm2m_coap_responder_sup:get_responder(ReSup, ChId, Message#coap_message{options = [{uri_path, [<<"t">>]}]}) of
+        {ok, Pid} ->
+            Pid ! {coap_response, ChId, Channel, undefined, Message};
+        {error, {not_found, _}} ->
+            %io:fwrite("get_responder returns error not_found~n", []),
+            ok
+    end,
+    request_complete(Channel, Message#coap_message{options = []});
+
 handle_response(Message, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}}) ->
     %io:fwrite("~p -> ~p~n", [self(), Message]),
     Sender ! {coap_response, ChId, Channel, Ref, Message},

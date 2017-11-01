@@ -120,8 +120,9 @@ handle_info({datagram, BinMessage= <<?VERSION:2, 0:1, _:1, TKL:4, _Code:8, MsgId
                     BinReset = lwm2m_coap_message_parser:encode(#coap_message{type=reset, id=MsgId}),
                     io:fwrite("<- reset~n"),
                     Sock ! {datagram, ChId, BinReset},
-                    {noreply, State}
-
+                    %{noreply, State}
+                    update_state(State, TrId,
+                        lwm2m_coap_transport:received(BinMessage, init_transport(TrId, undefined, State)))
             end
     end;
 % incoming ACK(2) or RST(3) to a request or response

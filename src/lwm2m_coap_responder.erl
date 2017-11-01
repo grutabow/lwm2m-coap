@@ -15,7 +15,7 @@
 
 -include("coap.hrl").
 
--export([start_link/2, notify/2]).
+-export([start_link/2, notify/2, get_channel/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
     terminate/2, code_change/3]).
 
@@ -32,6 +32,9 @@ notify(Uri, Resource) ->
         List -> [gen_server:cast(Pid, Resource) || Pid <- List]
     end.
 
+get_channel(Pid) ->
+    gen_server:call(Pid, get_channel).
+
 init([Channel, Uri]) ->
     % the receiver will be determined based on the URI
     case lwm2m_coap_server_registry:get_handler(Uri) of
@@ -43,6 +46,8 @@ init([Channel, Uri]) ->
             {stop, not_found}
     end.
 
+handle_call(get_channel, _From, State=#state{channel=Channel}) ->
+    {reply, Channel, State};
 handle_call(_Msg, _From, State) ->
     {reply, unknown_command, State}.
 
@@ -70,6 +75,9 @@ handle_info({coap_ack, _ChId, _Channel, Ref},
         {ok, ObState2} ->
             {noreply, State#state{obstate=ObState2}}
     end;
+handle_info({coap_error, _ChId, _Channel, {Topic, Msg = #coap_message{}}, _Error}, State=#state{module=Module, observer=undefined, obstate=ObState}) ->
+    invoke_callback(Module, handle_info, [{coap_error, {Topic, Msg}}, ObState]),
+    {noreply, State};
 handle_info({coap_error, _ChId, _Channel, _Ref, _Error}, State=#state{observer=undefined}) ->
     {noreply, State};
 handle_info({coap_error, _ChId, _Channel, _Ref, _Error}, State=#state{observer=Observer}) ->
