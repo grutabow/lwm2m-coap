@@ -110,6 +110,9 @@ in_con({in, BinMessage}, State) ->
         #coap_message{method=Method} = Message when is_atom(Method) ->
             handle_request(Message, State),
             go_await_aack(Message, State);
+        #coap_message{type = con} = Message ->
+            handle_response(Message, State),
+            go_con_await_aack(Message, State);
         #coap_message{} = Message ->
             handle_response(Message, State),
             go_await_aack(Message, State);
@@ -118,6 +121,10 @@ in_con({in, BinMessage}, State) ->
                                        id=lwm2m_coap_message_parser:message_id(BinMessage),
                                        payload=list_to_binary(Error)}, State)
     end.
+go_con_await_aack(Message, State=#state{sock=Sock, cid=ChId})->
+    BinAck = lwm2m_coap_message_parser:encode(lwm2m_coap_message:ack(Message)),
+    Sock ! {datagram, ChId, BinAck},
+    next_state(aack_sent, State).
 
 go_await_aack(Message, State) ->
     % we may need to ack the message
@@ -145,6 +152,10 @@ go_pack_sent(Ack, State=#state{sock=Sock, cid=ChId}) ->
     Sock ! {datagram, ChId, BinAck},
     next_state(pack_sent, State#state{msg=BinAck}).
 
+pack_sent({timeout, await_aack}, State) ->
+    % ignore aack_sent await_pack
+    next_state(pack_sent, State);
+
 pack_sent({in, _BinMessage}, State=#state{sock=Sock, cid=ChId, msg=BinAck}) ->
     % retransmit the ack
     Sock ! {datagram, ChId, BinAck},
@@ -163,12 +174,14 @@ out_con({out, Message}, State=#state{sock=Sock, cid=ChId}) ->
 % peer ack
 await_pack({in, BinAck}, State) ->
     case catch lwm2m_coap_message_parser:decode(BinAck) of
-        #coap_message{type=ack, method=undefined} = Ack ->
-            handle_ack(Ack, State);
-        #coap_message{type=reset} = Ack ->
-            handle_error(Ack, reset, State);
-        #coap_message{} = Ack ->
-            handle_response(Ack, State);
+        #coap_message{type=ack, method=undefined} = EmptyAck ->
+            handle_ack(EmptyAck, State);
+        #coap_message{type=ack} = PiggyBackedAck ->
+            handle_response(PiggyBackedAck, State);
+        #coap_message{type=reset} = Reset ->
+            handle_error(Reset, reset, State);
+        #coap_message{id=MsgId} ->
+            go_pack_sent(#coap_message{type=reset, id=MsgId}, State);
         {error, _Error} ->
             % shall we inform the receiver?
             ok
@@ -183,7 +196,7 @@ await_pack({timeout, await_pack}, State=#state{tid={out, _MsgId}, msg=Message}) 
     handle_error(Message, timeout, State),
     next_state(aack_sent, State).
 
-aack_sent({in, _Ack}, State) ->
+aack_sent(_Msg, State) ->
     % ignore ack retransmission
     next_state(aack_sent, State).
 
@@ -192,41 +205,30 @@ aack_sent({in, _Ack}, State) ->
 timeout_after(Time, Channel, TrId, Event) ->
     erlang:send_after(Time, Channel, {timeout, TrId, Event}).
 
-handle_request(Message, #state{cid=ChId, channel=Channel, resp=ReSup, receiver=undefined}) ->
+handle_request(Message, #state{cid=ChId, channel=Channel, resp=Pid, receiver=undefined}) ->
     %io:fwrite("~p => ~p~n", [self(), Message]),
-    case lwm2m_coap_responder_sup:get_responder(ReSup, ChId, Message) of
-        {ok, Pid} ->
-            Pid ! {coap_request, ChId, Channel, undefined, Message},
-            ok;
-        {error, {not_found, _}} ->
-            {ok, _} = lwm2m_coap_channel:send(Channel,
-                lwm2m_coap_message:response({error, not_found}, Message)),
-            ok
-    end;
+    Pid ! {coap_request, ChId, Channel, undefined, Message},
+    ok;
 handle_request(Message, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}}) ->
     %io:fwrite("~p => ~p~n", [self(), Message]),
     Sender ! {coap_request, ChId, Channel, Ref, Message},
     ok.
 
 handle_response(Message, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}}) ->
-    %io:fwrite("~p -> ~p~n", [self(), Message]),
     Sender ! {coap_response, ChId, Channel, Ref, Message},
     request_complete(Channel, Message).
 
-handle_error(Message, Error, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}}) ->
-    %io:fwrite("~p -> ~p~n", [self(), Message]),
-    Sender ! {coap_error, ChId, Channel, Ref, Error},
+handle_error(Message, _Error, #state{channel=Channel}) ->
     request_complete(Channel, Message).
 
 handle_ack(_Message, #state{cid=ChId, channel=Channel, receiver={Sender, Ref}}) ->
-    %io:fwrite("~p -> ~p~n", [self(), Message]),
     Sender ! {coap_ack, ChId, Channel, Ref},
     ok.
 
-request_complete(Channel, #coap_message{token=Token, options=Options}) ->
+request_complete(Channel, Msg=#coap_message{options=Options}) ->
     case proplists:get_value(observe, Options, []) of
         [] ->
-            Channel ! {request_complete, Token},
+            Channel ! {request_complete, Msg},
             ok;
         _Else ->
             ok

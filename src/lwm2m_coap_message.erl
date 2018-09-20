@@ -57,6 +57,12 @@ response(Method, Payload, Request) ->
 
 % omit option for its default value
 set(max_age, ?DEFAULT_MAX_AGE, Msg) -> Msg;
+set(etag, ETag, Msg=#coap_message{options=Options}) ->
+    Msg#coap_message{
+        options=[{etag, [ETag]}|Options]
+    };
+% omit option for empty value
+set(_Option, undefined, Msg) -> Msg;
 % set non-default value
 set(Option, Value, Msg=#coap_message{options=Options}) ->
     Msg#coap_message{
@@ -80,45 +86,89 @@ set_payload(Payload, Msg) when is_list(Payload) ->
     }.
 
 get_content(#coap_message{options=Options, payload=Payload}) ->
-    #coap_content{
-        etag = case proplists:get_value(etag, Options) of
-                   [ETag] -> ETag;
-                   _Other -> undefined
-               end,
-        max_age = proplists:get_value(max_age, Options, ?DEFAULT_MAX_AGE),
-        format = proplists:get_value(content_format, Options),
-        payload = Payload}.
+    WithOpts = populate_content(Options),
+    WithOpts#coap_content{payload = Payload}.
+
+populate_content(Options) ->
+    ContentFields = lists:foldr(
+        fun(etag, Acc) ->
+                ETagVar = case proplists:get_value(etag, Options) of
+                            [ETag] -> ETag;
+                            _Other -> undefined
+                          end,
+                [ETagVar | Acc];
+            (max_age, Acc) ->
+                [proplists:get_value(max_age, Options, ?DEFAULT_MAX_AGE) | Acc];
+            (Key, Acc) ->
+                [proplists:get_value(Key, Options) | Acc]
+        end, [], record_info(fields, coap_content)),
+    list_to_tuple([coap_content | ContentFields]).
 
 set_content(Content, Msg) ->
     set_content(Content, undefined, Msg).
 
-% segmentation not requested and not required
-set_content(#coap_content{etag=ETag, max_age=MaxAge, format=Format, payload=Payload}, undefined, Msg)
-        when byte_size(Payload) =< ?MAX_BLOCK_SIZE ->
-    set(etag, [ETag],
-        set(max_age, MaxAge,
-            set(content_format, Format,
-                set_payload(Payload, Msg))));
-% segmentation not requested, but required (late negotiation)
-set_content(Content, undefined, Msg) ->
-    set_content(Content, {0, true, ?MAX_BLOCK_SIZE}, Msg);
+% segmentation not requested
+set_content(#coap_content{payload=Payload} = Content, undefined, Msg) ->
+    PayloadSize = iolist_size(Payload),
+    if
+        PayloadSize =< ?MAX_BLOCK_SIZE -> %% segmentation not required
+            set_opts_from_content(Msg, Content);
+        true -> % payload too large, segmentation required (late negotiation)
+            set_content(Content, {0, true, ?MAX_BLOCK_SIZE}, Msg)
+    end;
+
 % segmentation requested (early negotiation)
-set_content(#coap_content{etag=ETag, max_age=MaxAge, format=Format, payload=Payload}, Block, Msg) ->
-    set(etag, [ETag],
-        set(max_age, MaxAge,
-            set(content_format, Format,
-                set_payload_block(Payload, Block, Msg)))).
+set_content(#coap_content{payload=Payload} = Content, Block, Msg) ->
+    WithPayload = set_payload_block(Payload, Block, Msg),
+    set_opts_from_content(WithPayload, Content, [payload, block1, block2]).
 
-set_payload_block(Content, Block, Msg=#coap_message{method=Method}) when is_atom(Method) ->
-    set_payload_block(Content, block1, Block, Msg);
-set_payload_block(Content, Block, Msg=#coap_message{}) ->
-    set_payload_block(Content, block2, Block, Msg).
+set_opts_from_content(Msg, Content) ->
+    set_opts_from_content(Msg, Content, []).
+set_opts_from_content(Message, Content, OmitList) ->
+    lists:foldl(fun(Key, Msg) ->
+        case lists:member(Key, OmitList) of
+            true -> Msg;
+            false ->
+                set(Key, content_value(Key, Content), Msg)
+        end
+    end, Message, record_info(fields, coap_content)).
 
-set_payload_block(Content, BlockId, {Num, _, Size}, Msg) when byte_size(Content) > (Num+1)*Size ->
-    set(BlockId, {Num, true, Size},
-        set_payload(binary:part(Content, Num*Size, Size), Msg));
-set_payload_block(Content, BlockId, {Num, _, Size}, Msg) ->
-    set(BlockId, {Num, false, Size},
-        set_payload(binary:part(Content, Num*Size, byte_size(Content)-Num*Size), Msg)).
+set_payload_block(Payload, Block, Msg=#coap_message{method=Method}) when is_atom(Method) ->
+    set_payload_block(Payload, block1, Block, Msg);
+set_payload_block(Payload, Block, Msg=#coap_message{}) ->
+    set_payload_block(Payload, block2, Block, Msg).
+
+set_payload_block(Payload, BlockId, _Block={Num, _, Size}, Msg) ->
+    PayloadSize = iolist_size(Payload),
+    if
+        PayloadSize > (Num+1)*Size ->
+            set(BlockId, {Num, true, Size},
+                set_payload(binary:part(Payload, Num*Size, Size), Msg));
+        (PayloadSize > Num*Size) andalso (PayloadSize =< (Num+1)*Size)->
+            set(BlockId, {Num, false, Size},
+                set_payload(binary:part(Payload, Num*Size, PayloadSize-Num*Size), Msg));
+        true ->
+            throw({invalid_block_opt, _Block, PayloadSize})
+    end.
+
+content_value(etag, Content) -> Content#coap_content.etag;
+content_value(max_age, Content) -> Content#coap_content.max_age;
+content_value(content_format, Content) -> Content#coap_content.content_format;
+content_value(uri_host, Content) -> Content#coap_content.uri_host;
+content_value(uri_port, Content) -> Content#coap_content.uri_port;
+content_value(uri_query, Content) -> Content#coap_content.uri_query;
+content_value(uri_path, Content) -> Content#coap_content.uri_path;
+content_value(location_path, Content) -> Content#coap_content.location_path;
+content_value(location_query, Content) -> Content#coap_content.location_query;
+content_value(if_match, Content) -> Content#coap_content.if_match;
+content_value(if_none_match, Content) -> Content#coap_content.if_none_match;
+content_value(accept, Content) -> Content#coap_content.accept;
+content_value(proxy_uri, Content) -> Content#coap_content.proxy_uri;
+content_value(proxy_scheme, Content) -> Content#coap_content.proxy_scheme;
+content_value(size1, Content) -> Content#coap_content.size1;
+content_value(observe, Content) -> Content#coap_content.observe;
+content_value(block1, Content) -> Content#coap_content.block1;
+content_value(block2, Content) -> Content#coap_content.block2;
+content_value(payload, Content) -> Content#coap_content.payload.
 
 % end of file

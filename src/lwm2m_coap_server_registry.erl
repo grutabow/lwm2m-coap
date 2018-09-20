@@ -12,7 +12,7 @@
 -export([add_handler/3, get_handler/1, get_links/0]).
 
 -behaviour(gen_server).
--export([start_link/0]).
+-export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 -record(state, {reg}).
@@ -27,13 +27,15 @@ get_links() ->
     gen_server:call(?MODULE, {get_links}).
 
 
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(ResourceHandlers) when is_list(ResourceHandlers) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, ResourceHandlers, []).
 
-init(_Args) ->
+init(ResourceHandlers) ->
     {ok, #state{reg=
-        % RFC 6690, Section 4
-        [{[<<".well-known">>, <<"core">>], lwm2m_coap_server_content, undefined}]
+        [  % RFC 6690, Section 4
+           {[<<".well-known">>, <<"core">>], lwm2m_coap_server_content, undefined} |
+           ResourceHandlers
+        ]
     }}.
 
 handle_call({add_handler, Prefix, Module, Args}, _From, State=#state{reg=Reg}) ->
