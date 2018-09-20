@@ -86,8 +86,8 @@ handle_info(cache_expired, State) ->
     {noreply, State, hibernate};
 
 handle_info({coap_ack, ChId, _Channel, Ref},
-        State=#state{module=Module, lwm2m_state=Lwm2mState}) ->
-    case invoke_callback(Module, coap_ack, [ChId, Ref], Lwm2mState) of
+        State=#state{module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
+    case invoke_callback(Module, coap_ack, [ChId, Ref], Lwm2mState, Args) of
         {ok, Lwm2mState2} ->
             {noreply, State#state{lwm2m_state=Lwm2mState2}, hibernate}
     end;
@@ -95,10 +95,10 @@ handle_info({coap_ack, ChId, _Channel, Ref},
 handle_info({coap_response, ChId, _Channel, Ref, #coap_message{
                 type = Type, method = Method, payload = Payload, options = Opts
              }}, State=#state{
-                module=Module, observer=Observer, lwm2m_state=Lwm2mState, channel = Channel
+                module=Module, observer=Observer, lwm2m_state=Lwm2mState, channel = Channel, args=Args
              }) ->
     CallbackArgs = [ChId, Ref, Type, Method, Payload, Opts],
-    case invoke_callback(Module, coap_response, CallbackArgs, Lwm2mState) of
+    case invoke_callback(Module, coap_response, CallbackArgs, Lwm2mState, Args) of
          {send_request, Request, Ref3, Lwm2mState2} ->
              send_request(Channel, Ref3, Request),
              {noreply, State#state{lwm2m_state=Lwm2mState2}, hibernate};
@@ -163,9 +163,9 @@ process_request(ChId, Request=#coap_message{options=Options},
 process_request(ChId, Request, State) ->
     check_resource(ChId, Request, State).
 
-check_resource(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState}) ->
+check_resource(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
     Content = lwm2m_coap_message:get_content(Request),
-    case invoke_callback(Module, coap_get, [ChId, Prefix, uri_query(Request), Content], Lwm2mState) of
+    case invoke_callback(Module, coap_get, [ChId, Prefix, uri_query(Request), Content], Lwm2mState, Args) of
         {ok, Response = #coap_content{}, Lwm2mState2} ->
             check_preconditions(ChId, Request, Response, State#state{lwm2m_state=Lwm2mState2});
         {error, not_found, Lwm2mState2} ->
@@ -222,10 +222,10 @@ handle_method(_ChId, Request, _Resource, State) ->
     return_response(Request, {error, method_not_allowed}, State).
 
 handle_observe(ChId, Request=#coap_message{options=Options}, Content=#coap_content{},
-        State=#state{prefix=Prefix, module=Module, observer=undefined, lwm2m_state=Lwm2mState}) ->
+        State=#state{prefix=Prefix, module=Module, observer=undefined, lwm2m_state=Lwm2mState, args=Args}) ->
     % the first observe request from this user to this resource
     Content = lwm2m_coap_message:get_content(Request),
-    case invoke_callback(Module, coap_observe, [ChId, Prefix, requires_ack(Request), Content], Lwm2mState) of
+    case invoke_callback(Module, coap_observe, [ChId, Prefix, requires_ack(Request), Content], Lwm2mState, Args) of
         {ok, Lwm2mState2} ->
             Uri = proplists:get_value(uri_path, Options, []),
             pg2:create({coap_observer, Uri}),
@@ -250,8 +250,10 @@ handle_unobserve(_ChId, Request, Resource, State) ->
     {ok, State2} = cancel_observer(Request, State),
     return_resource(Request, Resource, State2).
 
-cancel_observer(#coap_message{options=Options}, State=#state{module=Module, lwm2m_state=Lwm2mState}) ->
-    {ok, Lwm2mState2} = invoke_callback(Module, coap_unobserve, [], Lwm2mState),
+cancel_observer(undefined, _State) ->
+    {ok, _State};
+cancel_observer(#coap_message{options=Options}, State=#state{module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
+    {ok, Lwm2mState2} = invoke_callback(Module, coap_unobserve, [], Lwm2mState, Args),
     Uri = proplists:get_value(uri_path, Options, []),
     ok = pg2:leave({coap_observer, Uri}, self()),
     % will the last observer to leave this group please turn out the lights
@@ -261,9 +263,9 @@ cancel_observer(#coap_message{options=Options}, State=#state{module=Module, lwm2
     end,
     {ok, State#state{observer=undefined, lwm2m_state=Lwm2mState2}}.
 
-handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState}) ->
+handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
     Content = lwm2m_coap_message:get_content(Request),
-    case invoke_callback(Module, coap_post, [ChId, Prefix, uri_query(Request), Content], Lwm2mState) of
+    case invoke_callback(Module, coap_post, [ChId, Prefix, uri_query(Request), Content], Lwm2mState, Args) of
         {ok, Code, Content2, Lwm2mState2} ->
             return_resource([], Request, {ok, Code}, Content2, State#state{lwm2m_state=Lwm2mState2});
         {error, Error, Lwm2mState2} ->
@@ -272,9 +274,9 @@ handle_post(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_stat
             return_response([], Request, {error, Error}, Reason, State#state{lwm2m_state=Lwm2mState2})
     end.
 
-handle_put(ChId, Request, Resource, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState}) ->
+handle_put(ChId, Request, Resource, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
     Content = lwm2m_coap_message:get_content(Request),
-    case invoke_callback(Module, coap_put, [ChId, Prefix, uri_query(Request), Content], Lwm2mState) of
+    case invoke_callback(Module, coap_put, [ChId, Prefix, uri_query(Request), Content], Lwm2mState, Args) of
         {ok, Lwm2mState2} ->
             return_response(Request, created_or_changed(Resource), State#state{lwm2m_state=Lwm2mState2});
         {error, Code, Lwm2mState2} ->
@@ -283,9 +285,9 @@ handle_put(ChId, Request, Resource, State=#state{prefix=Prefix, module=Module, l
             return_response([], Request, {error, Code}, Reason, State#state{lwm2m_state=Lwm2mState2})
     end.
 
-handle_delete(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState}) ->
+handle_delete(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
     Content = lwm2m_coap_message:get_content(Request),
-    case invoke_callback(Module, coap_delete, [ChId, Prefix, Content], Lwm2mState) of
+    case invoke_callback(Module, coap_delete, [ChId, Prefix, Content], Lwm2mState, Args) of
         {ok, Lwm2mState2} ->
             return_response(Request, {ok, deleted}, State#state{lwm2m_state=Lwm2mState2});
         {error, Code, Lwm2mState2} ->
@@ -294,13 +296,13 @@ handle_delete(ChId, Request, State=#state{prefix=Prefix, module=Module, lwm2m_st
             return_response([], Request, {error, Code}, Reason, State#state{lwm2m_state=Lwm2mState2})
     end.
 
-invoke_system_callbacks(terminate, CallbackArgs, #state{module=Module, lwm2m_state=Lwm2mState}) ->
-    invoke_callback(Module, terminate, CallbackArgs, Lwm2mState);
+invoke_system_callbacks(terminate, CallbackArgs, #state{module=Module, lwm2m_state=Lwm2mState, args=Args}) ->
+    invoke_callback(Module, terminate, CallbackArgs, Lwm2mState, Args);
 
 invoke_system_callbacks(CallbackFunName, CallbackArgs, State=#state{
         module=Module, observer=Observer, lwm2m_state=Lwm2mState,
-        channel = Channel}) ->
-    case invoke_callback(Module, CallbackFunName, CallbackArgs, Lwm2mState) of
+        channel = Channel, args=Args}) ->
+    case invoke_callback(Module, CallbackFunName, CallbackArgs, Lwm2mState, Args) of
         {send_request, Request, Ref3, Lwm2mState2} ->
             send_request(Channel, Ref3, Request),
             {noreply, State#state{lwm2m_state=Lwm2mState2}, hibernate};
@@ -315,7 +317,12 @@ invoke_system_callbacks(CallbackFunName, CallbackArgs, State=#state{
             return_response(Observer, {error, Code}, State2)
     end.
 
-invoke_callback(Module, Fun, Args, Lwm2mState) ->
+invoke_callback(Module, Fun, CallbackArgs, Lwm2mState, undefined) ->
+    do_invoke_callback(Module, Fun, CallbackArgs, Lwm2mState);
+invoke_callback(Module, Fun, CallbackArgs, Lwm2mState, HandlerArgs) ->
+    do_invoke_callback(Module, Fun, CallbackArgs ++ HandlerArgs, Lwm2mState).
+
+do_invoke_callback(Module, Fun, Args, Lwm2mState) ->
     case catch apply(Module, Fun, Args ++ [Lwm2mState]) of
         {'EXIT', Error} ->
             error_logger:error_msg("~p", [Error]),

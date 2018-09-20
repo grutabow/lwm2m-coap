@@ -112,7 +112,8 @@ set_content(#coap_content{payload=Payload} = Content, undefined, Msg) ->
     PayloadSize = iolist_size(Payload),
     if
         PayloadSize =< ?MAX_BLOCK_SIZE -> %% segmentation not required
-            set_opts_from_content(Msg, Content);
+            set_payload(Payload,
+                        set_opts_from_content(Msg, Content, [payload]));
         true -> % payload too large, segmentation required (late negotiation)
             set_content(Content, {0, true, ?MAX_BLOCK_SIZE}, Msg)
     end;
@@ -122,8 +123,6 @@ set_content(#coap_content{payload=Payload} = Content, Block, Msg) ->
     WithPayload = set_payload_block(Payload, Block, Msg),
     set_opts_from_content(WithPayload, Content, [payload, block1, block2]).
 
-set_opts_from_content(Msg, Content) ->
-    set_opts_from_content(Msg, Content, []).
 set_opts_from_content(Message, Content, OmitList) ->
     lists:foldl(fun(Key, Msg) ->
         case lists:member(Key, OmitList) of
