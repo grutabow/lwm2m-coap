@@ -12,7 +12,7 @@
 -export([connect/2, close/1, start_link/1, get_channel/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
--record(state, {sock, supid, channel}).
+-record(state, {sock, channel}).
 
 connect(Host, Port) ->
     {ok, Socket} = gen_server:start_link(?MODULE, [connect, Host, Port], []),
@@ -36,8 +36,8 @@ init([accept, ListenSocket]) ->
     {ok, #state{sock=ListenSocket}}.
 
 handle_call({get_channel, ChId}, _From, State=#state{channel=undefined}) ->
-    {ok, SupPid, Pid} = lwm2m_coap_channel_sup:start_link(self(), ChId),
-    {reply, {ok, Pid}, State#state{supid=SupPid, channel=Pid}}.
+    {ok, Pid} = lwm2m_coap_channel:start_link(self(), ChId),
+    {reply, {ok, Pid}, State#state{channel=Pid}}.
 
 handle_cast(accept, State = #state{sock=ListenSocket}) ->
     case ssl:transport_accept(ListenSocket) of
@@ -47,8 +47,8 @@ handle_cast(accept, State = #state{sock=ListenSocket}) ->
             % establish the connection
             ok = ssl:ssl_accept(Socket),
             % FIXME: where do we get the chanel id?
-            {ok, SupPid, Pid} = lwm2m_coap_channel_sup:start_link(self(), {{0,0,0,0}, 0}),
-            {noreply, State#state{sock=Socket, supid=SupPid, channel=Pid}};
+            {ok, Pid} = lwm2m_coap_channel:start_link(self(), {{0,0,0,0}, 0}),
+            {noreply, State#state{sock=Socket, channel=Pid}};
         _ ->
             {stop, normal, State}
     end;
@@ -64,7 +64,7 @@ handle_info({ssl_closed, _Socket}, State) ->
 handle_info({datagram, _ChId, Data}, State=#state{sock=Socket}) ->
     ok = ssl:send(Socket, Data),
     {noreply, State};
-handle_info({terminated, SupPid, _ChId}, State=#state{sock=Socket, supid=SupPid}) ->
+handle_info({terminated, _ChId}, State=#state{sock=Socket}) ->
     % the channel has terminated
     ssl:close(Socket),
     {stop, normal, State};

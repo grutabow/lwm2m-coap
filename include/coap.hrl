@@ -5,7 +5,32 @@
 -define(DEFAULT_MAX_AGE, 60).
 
 -record(coap_message, {type, method, id, token = <<>>, options = [], payload = <<>>}).
--record(coap_content, {etag, max_age = ?DEFAULT_MAX_AGE, format, payload = <<>>}).
+-record(coap_content, {
+    % supported options
+    etag,
+    max_age = ?DEFAULT_MAX_AGE,
+    content_format,
+    uri_host,
+    uri_port,
+    uri_query,
+    uri_path,
+    location_path,
+    location_query,
+    if_match,
+    if_none_match,
+    accept,
+    proxy_uri,
+    proxy_scheme,
+    size1,
+    observe,
+    block1,
+    block2,
+    % payload
+    payload = <<>>
+    }).
 
 -type coap_message() :: #coap_message{}.
 -type coap_content() :: #coap_content{}.
+
+-define(CLOSED, <<0>>).
+-define(PING, <<1>>).
